@@ -72,6 +72,36 @@ jobs:
           done < <(find build/app/outputs/flutter-apk \
             -type f -name '*-qa-profile.apk' -print0 | sort -z)
           test "$(find dist -type f -name '*.apk' | wc -l)" -eq 3
+
+      - name: Sign QA APKs with persistent key
+        env:
+          QA_KEYSTORE_BASE64: ${{ secrets.QA_KEYSTORE_BASE64 }}
+          QA_KEYSTORE_PASSWORD: ${{ secrets.QA_KEYSTORE_PASSWORD }}
+          QA_KEY_ALIAS: ${{ secrets.QA_KEY_ALIAS }}
+          QA_KEY_PASSWORD: ${{ secrets.QA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${QA_KEYSTORE_BASE64:-}"
+          test -n "${QA_KEYSTORE_PASSWORD:-}"
+          test -n "${QA_KEY_ALIAS:-}"
+          test -n "${QA_KEY_PASSWORD:-}"
+          ks="$RUNNER_TEMP/qa-obtainium.jks"
+          printf '%s' "$QA_KEYSTORE_BASE64" | base64 -d > "$ks"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          build_tools="$(ls -1d "$sdk"/build-tools/* | sort -V | tail -1)"
+          apksigner="$build_tools/apksigner"
+          test -x "$apksigner"
+          for apk in dist/*.apk; do
+            "$apksigner" sign \
+              --ks "$ks" \
+              --ks-pass "pass:$QA_KEYSTORE_PASSWORD" \
+              --ks-key-alias "$QA_KEY_ALIAS" \
+              --key-pass "pass:$QA_KEY_PASSWORD" \
+              --in "$apk" \
+              --out "$apk"
+            "$apksigner" verify "$apk"
+          done
+          rm -f "$ks"
           (
             cd dist
             sha256sum *.apk > SHA256SUMS
@@ -91,7 +121,8 @@ jobs:
 
           - Package: \`dev.xpetalab.hermesconsole.qa\` (launcher: Hermes Console QA)
           - Sits next to Play/Obtainium production; do not uninstall the official app
-          - Profile build, debug-signed — not an XPeta release and cannot update production
+          - Profile build, fork-persistent QA signature — not an XPeta release and cannot update production
+          - First install after a signer change: uninstall Hermes Console QA, then install (Obtainium cannot overlay a different cert)
           - Source: \`${{ github.sha }}\` (\`$commit\`) on \`joseph/athena-bot-chat-glass\`
           - Base: v1.2.10. Holes: FORK.md
 

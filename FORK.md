@@ -27,12 +27,17 @@ machinery plus a writable Open Chat — not a new lock, redirect, or mailbox.
 ## How to run it
 
 **Obtainium (same as the Open Chat QA sitting):** push this branch to
-`josephsellers/hermes-console`. GitHub Actions builds flavor `qa` and
-replaces pre-release tag `qa-open-chat`. Phone: Obtainium app source
-`https://github.com/josephsellers/hermes-console`, **Include prereleases**
-on, prefer `hermes-console-qa-open-chat-arm64-v8a.apk`. Package
-`dev.xpetalab.hermesconsole.qa` updates in place. Leave official 1.2.9
-installed.
+`josephsellers/hermes-console`. GitHub Actions builds flavor `qa`, signs
+with a fork-persistent QA key (GitHub secrets, not the ephemeral debug
+cert), and replaces pre-release tag `qa-open-chat`. Phone: Obtainium app
+source `https://github.com/josephsellers/hermes-console`, **Include
+prereleases** on, prefer `hermes-console-qa-open-chat-arm64-v8a.apk`.
+Package `dev.xpetalab.hermesconsole.qa`. Leave official 1.2.9 installed.
+
+A GHA debug cert cannot overlay another GHA debug cert
+(`failureConflict`). After the persistent-key build: **uninstall Hermes
+Console QA**, then install from Obtainium once. Later updates overlay.
+Pairing for the QA app is lost on that uninstall.
 
 Athena has no Flutter SDK. Laptop sideload is the fallback, not the path:
 
