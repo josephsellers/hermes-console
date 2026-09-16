@@ -51,20 +51,20 @@ import 'tasks_screen.dart';
 /// profile management and task mutations.
 enum MissionControlOwnedSurface { bot, room }
 
-/// Bot Chat remains a history destination in 1.2.10, but its write contract is
-/// deferred. Reusing ChatScreen with an isolated read-only connection preserves
-/// canonical history without exposing composer, dictation or voice submission.
+/// Athena personal fork: writable Open Chat on the canonical Bot Chat.
+/// Stock 1.2.10 forced read-only history. Not an upstream write contract.
 @visibleForTesting
-ChatScreen buildReadOnlyBotChatDestination({
+ChatScreen buildBotChatDestination({
   required SavedConnection connection,
   required Session session,
   required String? initialStoredSessionId,
   required AgentProfile profile,
   MissionProfileAvatarCache? avatarCache,
 }) => ChatScreen(
-  connection: connection.copyWith(readOnly: true),
+  connection: connection,
   session: session,
   initialStoredSessionId: initialStoredSessionId,
+  requestComposerFocus: true,
   missionBotProfile: profile,
   missionAvatarCache: avatarCache,
 );
@@ -1000,7 +1000,7 @@ class _MissionControlScreenState extends State<MissionControlScreen>
     });
   }
 
-  /// Opens the agent's canonical Bot Chat as read-only history.
+  /// Opens the agent's canonical Bot Chat (writable second glass).
   Future<void> _openChat(MissionAgent agent) async {
     final officialPin = agent.profile.botChatSessionId;
     final officialMetadata = agent.profile.botModeUiMeta.containsKey('chat');
@@ -1080,7 +1080,7 @@ class _MissionControlScreenState extends State<MissionControlScreen>
     } else {
       await openChatFromSection<void>(
         context,
-        builder: (_) => buildReadOnlyBotChatDestination(
+        builder: (_) => buildBotChatDestination(
           connection: widget.connection,
           session: session,
           initialStoredSessionId: pinnedId,
@@ -1601,7 +1601,7 @@ class _MissionControlScreenState extends State<MissionControlScreen>
     }
   }
 
-  /// Creates the profile and opens its empty read-only Bot Chat history.
+  /// Creates the profile and opens its Bot Chat.
   Future<void> _createAgentFromMission() async {
     if (widget.connection.readOnly) return;
     final snapshot = _snapshot;

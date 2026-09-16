@@ -1,0 +1,110 @@
+name: Build QA APK for Obtainium
+
+# Fork-only physical-test APK. Never runs on xP3ta/hermes-console.
+# Official GitHub Releases/Obtainium stay signed fullRelease only.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - joseph/athena-bot-chat-glass
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qa-obtainium-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build qa profile APK
+    if: github.repository == 'josephsellers/hermes-console'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.1'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Static analysis
+        run: flutter analyze --fatal-infos
+
+      - name: Build QA profile APKs
+        run: |
+          flutter build apk --profile --flavor qa --split-per-abi \
+            --dart-define=HERMES_FLAVOR=qa
+
+      - name: Stage Obtainium assets
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          while IFS= read -r -d '' apk; do
+            base="$(basename "$apk")"
+            case "$base" in
+              app-arm64-v8a-qa-profile.apk)
+                dest="hermes-console-qa-open-chat-arm64-v8a.apk" ;;
+              app-armeabi-v7a-qa-profile.apk)
+                dest="hermes-console-qa-open-chat-armeabi-v7a.apk" ;;
+              app-x86_64-qa-profile.apk)
+                dest="hermes-console-qa-open-chat-x86_64.apk" ;;
+              *)
+                echo "unexpected APK name: $base" >&2
+                exit 1 ;;
+            esac
+            cp "$apk" "dist/$dest"
+          done < <(find build/app/outputs/flutter-apk \
+            -type f -name '*-qa-profile.apk' -print0 | sort -z)
+          test "$(find dist -type f -name '*.apk' | wc -l)" -eq 3
+          (
+            cd dist
+            sha256sum *.apk > SHA256SUMS
+            ls -lh *.apk
+            cat SHA256SUMS
+          )
+
+      - name: Publish Obtainium pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="qa-open-chat"
+          commit="$(git rev-parse --short HEAD)"
+          notes="$(cat <<EOF
+          Unofficial Athena fork QA: writable Bot Chat on Console 1.2.10.
+
+          - Package: \`dev.xpetalab.hermesconsole.qa\` (launcher: Hermes Console QA)
+          - Sits next to Play/Obtainium production; do not uninstall the official app
+          - Profile build, debug-signed — not an XPeta release and cannot update production
+          - Source: \`${{ github.sha }}\` (\`$commit\`) on \`joseph/athena-bot-chat-glass\`
+          - Base: v1.2.10. Holes: FORK.md
+
+          In Obtainium: Add App → \`https://github.com/josephsellers/hermes-console\` →
+          enable Include prereleases → prefer the \`arm64-v8a\` APK on a phone.
+          EOF
+          )"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release delete "$tag" --yes --cleanup-tag
+          fi
+          gh release create "$tag" \
+            --prerelease \
+            --target "${{ github.sha }}" \
+            --title "Unofficial QA: Bot Chat glass ($commit)" \
+            --notes "$notes" \
+            dist/*.apk dist/SHA256SUMS

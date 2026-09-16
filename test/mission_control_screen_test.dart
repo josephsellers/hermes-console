@@ -409,7 +409,7 @@ void main() {
         );
   });
 
-  test('Bot Chat destinations are read-only for every canonical state', () {
+  test('Bot Chat destinations stay writable for every canonical state', () {
     const profile = AgentProfile(name: 'infra');
     for (final fixture in <({Session session, String? storedSessionId})>[
       (
@@ -422,18 +422,18 @@ void main() {
       ),
       (session: _session('mob-bot-infra', 'infra'), storedSessionId: null),
     ]) {
-      final destination = buildReadOnlyBotChatDestination(
+      final destination = buildBotChatDestination(
         connection: _connection,
         session: fixture.session,
         initialStoredSessionId: fixture.storedSessionId,
         profile: profile,
       );
 
-      expect(destination.connection.readOnly, isTrue);
+      expect(destination.connection.readOnly, isFalse);
       expect(destination.session, same(fixture.session));
       expect(destination.initialStoredSessionId, fixture.storedSessionId);
       expect(destination.initialPrompt, isNull);
-      expect(destination.requestComposerFocus, isFalse);
+      expect(destination.requestComposerFocus, isTrue);
       expect(destination.missionBotProfile, same(profile));
       expect(destination.missionRoom, isNull);
     }
@@ -2255,8 +2255,8 @@ void main() {
       expect(gateway.metaProfile, 'research-bot');
       expect(gateway.metaCreatedAtMs, isNotNull);
 
-      // After creation, Mission Control keeps the canonical read-only history
-      // destination without submitting a kickoff turn.
+      // After creation, Mission Control opens the canonical Bot Chat without
+      // submitting a kickoff turn.
       expect(opened, isNotNull);
       expect(opened?.profile, 'research-bot');
       expect(opened?.title, 'Bot Chat');
