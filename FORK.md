@@ -6,7 +6,9 @@ Phone: flavor **`qa`** → `dev.xpetalab.hermesconsole.qa` (Obtainium
 `qa-open-chat`). Current APK is **`joseph/qa-pr-34-35-38`** (`7a5e368`,
 `main` + #34 + #35 + #38), not this v1.2.10 glass branch. This branch is
 the rollback. Official Obtainium **1.2.9** stays installed. Do **not**
-take stock 1.2.10 until #34 ships.
+take stock 1.2.10 until #34 ships. [#38](https://github.com/xP3ta/hermes-console/pull/38)
+is in review for Console **1.2.11** (not merged). Keep this QA APK until
+that release includes the busy→idle REST GET.
 
 This is a private glass-swap fork for one Hermes on Athena. It is **not** a
 pull-request candidate. Holes below are accepted. Anyone else would need a
