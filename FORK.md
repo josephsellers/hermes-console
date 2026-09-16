@@ -52,11 +52,12 @@ this fork unless he names that sitting.
 1. **Not two live writers.** Sequential glasses. Mid-turn clash is undefined
    (hitchhike, queue, or `SESSION_NOT_OWNED`). No composer lock, no
    `session.redirect`, no takeover, no `bot_live_delivery` for photos.
-2. **Live view is best-effort.** 1.2.9 showed the phone-originated photo
-   turn on both glasses, then missed Desktop’s next line until tap-out →
-   resume. 1.2.10 resume/adopt may be better; it is unproven on this fork
-   until Joseph sits in Open Chat while Desktop generates. Tap-out/back is
-   the fallback.
+2. **Live view is best-effort.** Tokens still do not stream from Desktop
+   (`_runTerminal` drops `message.delta`). 1.2.10 QA `@tech` 2026-09-16:
+   user line + working spinner were live; the reply needed exit/resume
+   because REST was not re-GETed after idle. This fork now fetches REST
+   once when remote `working` ends so the durable reply should appear
+   without leaving. Not a live token view.
 3. **Share sheet still mints a sibling.** Gallery → Hermes Console is
    `source: android-share`, not the pinned Bot Chat. Use **Bots → Open Chat
    → attach** (the proven path).
