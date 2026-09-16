@@ -3,9 +3,10 @@
 Branch: `joseph/athena-bot-chat-glass`  
 Base: Hermes Console **v1.2.10** (`3fd569f`) / gateway contract v7  
 Phone: flavor **`qa`** → `dev.xpetalab.hermesconsole.qa` (Obtainium
-`qa-open-chat`, currently `1.2.10+9012` / `8764000`)  
-Official Obtainium **1.2.9** (`dev.xpetalab.hermesconsole`) stays installed.
-Do **not** take stock 1.2.10 — Bot Open Chat is still a viewer there.
+`qa-open-chat`). Current APK is **`joseph/qa-pr-34-35-38`** (`7a5e368`,
+`main` + #34 + #35 + #38), not this v1.2.10 glass branch. This branch is
+the rollback. Official Obtainium **1.2.9** stays installed. Do **not**
+take stock 1.2.10 until #34 ships.
 
 This is a private glass-swap fork for one Hermes on Athena. It is **not** a
 pull-request candidate. Holes below are accepted. Anyone else would need a
@@ -24,8 +25,15 @@ process, `session.resume` reuses the live id). Writer identity is
 While Open Chat is on screen, Console polls REST during remote `working`
 (user line + spinner) and **GETs once more when that turn goes idle**
 (durable assistant reply). Tokens do not stream (`_runTerminal` drops
-`message.delta`). Verified 2026-09-16 on `@tech`: Desktop chat visible on
-the phone, including replies, without leaving the chat.
+`message.delta`). Verified 2026-09-16 on `@tech` (glass fork and the
+stacked QA APK): Desktop chat visible on the phone, including replies,
+without leaving the chat.
+
+**Pinless (#35) on the stacked APK, `@tech` 2026-09-16:** Desktop quit
+(one Bot Chat pane still holds a live runtime per bot opened this sitting;
+switching the pane does not drop leases). Stripped only `chat:` (not
+`chat: null`). Open Chat showed hidden Bot Chat `20260904_223526_a9f157`.
+Send landed on that id; first prompt wrote `chat:` back. No throwaway.
 
 ## How to run it
 
@@ -40,10 +48,9 @@ Phone: Obtainium source `https://github.com/josephsellers/hermes-console`,
 installed (title filter `v1\.2\.9`).
 
 A GHA debug cert cannot overlay another GHA debug cert
-(`failureConflict` / signing-certificate mismatch). The current phone
-install is the persistent-key build (`8764000`). Later updates overlay.
-If the signer ever changes again: uninstall Hermes Console QA, then
-install once (pairing is lost).
+(`failureConflict` / signing-certificate mismatch). Persistent-key
+installs overlay (`8764000`, then `7a5e368`). If the signer ever changes
+again: uninstall Hermes Console QA, then install once (pairing is lost).
 
 Athena has no Flutter SDK. Laptop sideload is the fallback:
 
@@ -69,13 +76,16 @@ this fork unless he names that sitting.
 3. **Share sheet still mints a sibling.** Gallery → Hermes Console is
    `source: android-share`, not the pinned Bot Chat. Use **Bots → Open Chat
    → attach** (the proven path).
-4. **Desktop tab is the hitchhike host.** If that Bot Chat is not live in
-   the dashboard process, the phone becomes the owner. Desktop may not see
-   the turn until it resumes. Close-tab / reopen is fine.
-5. **Pins are Athena disk state.** Git still strips `chat:`. New bots stay
-   pinless until Desktop or CoS writes the pin. Appearance-only vs
-   `chat: null` is stock 1.2.10 (#14). This fork does not add a uniqueness
-   gate or pick-by-message-count.
+4. **Desktop live runtime is the hitchhike host.** Bot Chat is one pane
+   now, but the dashboard still holds a live session for every bot opened
+   this sitting. Switching the pane does not drop leases. Quit Desktop or
+   disconnect the instance to test pinless discovery. If nothing is live,
+   the phone becomes the owner.
+5. **Pins are Athena disk state.** Git still strips `chat:`. Keep live
+   `chat:` on disk. #35 (`canonical_session`) resumed `@tech` pinless on
+   the stacked APK (2026-09-16) and wrote the pin back on first prompt.
+   This glass fork does not add that discovery. `chat: null` stays a real
+   reset. Do not pick by message count.
 6. **No Bot Screen on the phone.** VISION already rejected that.
 7. **QA app is a second instance.** Separate pairing, drafts, and Bot Chat
    local pins. Do not treat it as an Obtainium update of official 1.2.9.
