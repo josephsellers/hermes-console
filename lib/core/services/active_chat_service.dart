@@ -4989,6 +4989,10 @@ class ActiveChat {
   bool _desktopHistoryHydrating = false;
   bool _desktopHistoryNeedsHydration = false;
   int? _desktopHydrationExpectedMessageCount;
+  /// From [loadMessages] `expectedMessageCount`. Snapshot hydration may
+  /// null `_desktopHydrationExpectedMessageCount`; this must survive until
+  /// a complete transcript replaces coverage.
+  int? _hardExpectedStoredMessageCount;
   Future<void>? _desktopHistoryHydrationFlight;
   int? _desktopHistoryHydrationFlightEpoch;
   bool? _desktopHydrationOutcome;
@@ -6478,6 +6482,9 @@ class ActiveChat {
     bool Function()? stillOwningVisible,
   }) async {
     final loadEpoch = ++_messageLoadEpoch;
+    if (expectedMessageCount != null && expectedMessageCount > 0) {
+      _hardExpectedStoredMessageCount = expectedMessageCount;
+    }
     bool viewerAuthorized() =>
         passiveOnly || (stillOwningVisible?.call() ?? true);
     bool loadStillAuthorized() =>
@@ -7788,6 +7795,7 @@ class ActiveChat {
     _earlierMessagesNextOffset = visibleCount;
     _needsTranscriptTailHydration = false;
     _desktopHydrationExpectedMessageCount = null;
+    _hardExpectedStoredMessageCount = null;
     _unconfirmedRetainedTranscriptIdentities.clear();
   }
 
@@ -14277,10 +14285,8 @@ class ActiveChat {
         if (!elapsed || !_canRecoverTurn(turnEpoch)) return;
       }
       // Official Hermes has no turn_idempotency_v1, so recovery otherwise
-      // reconnects the dashboard WebSocket and session.resume. On a slow
-      // path that socket can stall in connecting after a 1006 while REST
-      // already has the assistant row. Adopt that transcript first; if the
-      // current turn is not durable yet, keep the existing resume loop.
+      // reconnects the dashboard WebSocket and session.resume. A GET is
+      // allowed first, but only a complete transcript may seal the turn.
       if (await _tryAdoptDurableTranscriptForRecoveringTurn(turnEpoch)) {
         return;
       }
@@ -14631,15 +14637,12 @@ class ActiveChat {
     _emit(ActiveChatEvent.error);
   }
 
-  /// One REST read of the stored transcript. If it already contains a final
-  /// assistant for the in-flight user turn, seal the run without waiting on
-  /// `session.resume`. Failures and incomplete turns return false so snapshot
-  /// recovery can continue. Does not acquire a runtime.
-  ///
-  /// A short REST list is not allowed to replace a conversation we already
-  /// know is longer (`hasEarlierMessages`). That is a paginated tail, not
-  /// proof the session is only those rows — snapshot recovery must still
-  /// degrade when `messageCount` says the page is partial.
+  /// One REST read of the stored transcript. Adopt only when that GET is a
+  /// **complete** session (pagination exhausted / no uncovered announced
+  /// count) *and* terminal authority for the in-flight user turn. A short
+  /// unpaginated page, or `messageCount` / `expectedMessageCount` still
+  /// larger than the list, falls through to snapshot resume. Does not
+  /// acquire a runtime.
   Future<bool> _tryAdoptDurableTranscriptForRecoveringTurn(int turnEpoch) async {
     if (!_canRecoverTurn(turnEpoch)) return false;
     final expectedUsers = _messages.where(isRealUserTurn).length;
@@ -14647,14 +14650,7 @@ class ActiveChat {
     try {
       final transcript = await _loadStoredMessages(_storedSessionProfile);
       if (!_canRecoverTurn(turnEpoch)) return false;
-      final announced = _desktopHydrationExpectedMessageCount;
-      // A REST list no longer than the visible transcript cannot prove a
-      // session we already know is incomplete (paginated Bot Chat, or
-      // expectedMessageCount > page). Snapshot recovery still owns those.
-      if ((announced != null && transcript.length < announced) ||
-          (!_transcriptIsComplete && transcript.length <= _messages.length)) {
-        return false;
-      }
+      if (!_restTranscriptCoversAnnouncedCount(transcript)) return false;
       final authority = _terminalAuthority(transcript, expectedUsers);
       if (authority.reason != TerminalAuthorityReason.finalAssistant) {
         return false;
@@ -14673,6 +14669,23 @@ class ActiveChat {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Production [ApiClient.getMessages] already walks pages to the end.
+  /// Injected test loaders have no pagination metadata, so an announced
+  /// count still larger than the list means the GET is a tail, not coverage.
+  bool _restTranscriptCoversAnnouncedCount(
+    List<Map<String, dynamic>> transcript,
+  ) {
+    final hydration = _desktopHydrationExpectedMessageCount;
+    final hard = _hardExpectedStoredMessageCount;
+    final announced = hydration == null
+        ? hard
+        : hard == null
+        ? hydration
+        : math.max(hydration, hard);
+    if (announced == null || announced <= 0) return true;
+    return transcript.length >= announced;
   }
 
   Future<void> _recoverRestTurnFromTranscript(
