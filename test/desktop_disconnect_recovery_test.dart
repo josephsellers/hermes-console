@@ -3381,6 +3381,73 @@ void main() {
   );
 
   test(
+    'sin turn_idempotency_v1 un GET durable sella el turno sin reanudar el socket',
+    () async {
+      final recoveryGate = Completer<DesktopSessionSnapshot>();
+      final gateway = _LifecycleRecoverableGateway()
+        ..recoveryExistingGate = recoveryGate
+        ..recoverySnapshot = DesktopSessionSnapshot(
+          runtimeSessionId: 'runtime-rest-first',
+          storedSessionId: 'session-rest-first-noidem',
+          created: false,
+          messagesProvided: true,
+          messages: const [],
+          inflight: DesktopInflightTurn(
+            user: 'dame noticias',
+            streaming: true,
+          ),
+          running: true,
+        );
+      final api = _CompletedTranscriptApi(const [
+        {
+          'message_id': 'rest-first-user',
+          'role': 'user',
+          'content': 'dame noticias',
+        },
+        {
+          'message_id': 'rest-first-assistant',
+          'role': 'assistant',
+          'content': 'Aquí están las noticias.',
+        },
+      ]);
+      final chat = _recoverableChat(
+        'rest-first-noidem',
+        gateway,
+        api: api,
+        turnIdempotencySupported: false,
+      );
+      addTearDown(chat.dispose);
+
+      await chat.send(
+        fullText: 'dame noticias',
+        model: 'hermes-agent',
+        history: const [],
+        delivery: _delivery('rest-first-noidem', _NoopOutbox()),
+      );
+      final resumesBeforeDrop = gateway.resumeExistingCalls;
+      expect(chat.isStreaming, isTrue);
+      gateway.drop();
+      await _waitUntil(
+        () => chat.state == ChatPipelineState.completed,
+        timeout: const Duration(seconds: 5),
+      );
+
+      expect(chat.assistantContent, 'Aquí están las noticias.');
+      expect(chat.awaitingDurableTurnRecovery, isFalse);
+      expect(api.calls, greaterThan(0));
+      expect(gateway.resumeExistingCalls, resumesBeforeDrop);
+      expect(recoveryGate.isCompleted, isFalse);
+      expect(gateway.statusCalls, 0);
+      expect(
+        chat.messages.any(
+          (message) => message['content'].toString().contains('StateError'),
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'sin turn_idempotency_v1 un resume sin snapshot sigue degradando honesto',
     () async {
       final gateway = _LifecycleRecoverableGateway();

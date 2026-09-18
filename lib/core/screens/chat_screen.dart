@@ -4040,6 +4040,12 @@ class _ChatScreenState extends State<ChatScreen>
     if (!_canProbePassiveRemoteActivity) return true;
     await _chat.refreshPassiveRemoteActivity();
     if (!_canPassivelyRefreshTranscript) return true;
+    // After a 1006 the runtime is detached, so the 3s reader would GET the
+    // whole Bot Chat on a timer. Skip that while the composer has a draft
+    // unless another surface owns the live turn (watching Desktop).
+    if (!_composerEmpty && !_chat.remoteSurfaceOwnsLiveTurn) {
+      return true;
+    }
     return _fetchMessages(passiveOnly: true);
   }
 

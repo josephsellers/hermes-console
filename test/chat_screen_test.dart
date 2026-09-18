@@ -3879,6 +3879,49 @@ void main() {
   );
 
   testWidgets(
+    'un borrador en el composer no recarga REST cada 3s sin runtime',
+    (tester) async {
+      var loads = 0;
+      final gateway = _UiRewindGateway();
+      await pumpChat(
+        tester,
+        desktopGateway: gateway,
+        connection: _remoteConn('conn-draft-skips-rest'),
+        messagesLoaded: false,
+        initialStoredSessionId: 'sess-test',
+        attachDesktopRuntimeOnLoad: false,
+        allowUnownedDesktopSnapshotForTesting: false,
+        storedMessageLoader: (_, _) async {
+          loads += 1;
+          return const [
+            {'id': 'stable-user', 'role': 'user', 'content': 'Turno durable'},
+          ];
+        },
+      );
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+      final loadsAfterIdle = loads;
+      expect(loadsAfterIdle, greaterThan(0));
+      expect(find.text('Turno durable'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).last, 'borrador lento');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+
+      expect(loads, loadsAfterIdle);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller?.text,
+        'borrador lento',
+      );
+      expect(gateway.resumeExistingCalls, 0);
+      expect(gateway.createCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'active_list tardío no revive actividad cerrada por una lectura nueva',
     (tester) async {
       final staleWorking = Completer<DesktopActiveSessionList>();
