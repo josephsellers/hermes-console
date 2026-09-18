@@ -9,6 +9,7 @@ on:
     branches:
       - joseph/athena-bot-chat-glass
       - joseph/qa-pr-34-35-38
+      - joseph/qa-pr-34-35-38-40
 
 permissions:
   contents: write
@@ -118,14 +119,15 @@ jobs:
           tag="qa-open-chat"
           commit="$(git rev-parse --short HEAD)"
           notes="$(cat <<EOF
-          Unofficial Athena QA: upstream main + #34 + #35 + #38.
+          Unofficial Athena QA: upstream main + #34 + #35 + #38 + #40.
 
           - #34 writable Bot Chat
           - #35 canonical_session resume (cherry-picked; PR branch had unrelated setup history)
           - #38 REST reload when a remote turn goes idle
+          - #40 REST transcript when the live socket drops; skip 3s GET while drafting
           - Package: \`dev.xpetalab.hermesconsole.qa\` (launcher: Hermes Console QA)
           - Same persistent QA signature as the previous glass APK — Obtainium can overlay
-          - Source: \`${{ github.sha }}\` (\`$commit\`) on \`joseph/qa-pr-34-35-38\`
+          - Source: \`${{ github.sha }}\` (\`$commit\`) on \`${{ github.ref_name }}\`
           - Base: origin/main. Not an XPeta release.
 
           In Obtainium: Include prereleases → \`hermes-console-qa-open-chat-arm64-v8a.apk\`.
@@ -137,6 +139,6 @@ jobs:
           gh release create "$tag" \
             --prerelease \
             --target "${{ github.sha }}" \
-            --title "Unofficial QA: PRs 34+35+38 ($commit)" \
+            --title "Unofficial QA: PRs 34+35+38+40 ($commit)" \
             --notes "$notes" \
             dist/*.apk dist/SHA256SUMS
