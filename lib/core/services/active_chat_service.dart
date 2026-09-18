@@ -14648,9 +14648,11 @@ class ActiveChat {
       final transcript = await _loadStoredMessages(_storedSessionProfile);
       if (!_canRecoverTurn(turnEpoch)) return false;
       final announced = _desktopHydrationExpectedMessageCount;
-      if (hasEarlierMessages &&
-          (transcript.length <= _messages.length ||
-              (announced != null && transcript.length < announced))) {
+      // A REST list no longer than the visible transcript cannot prove a
+      // session we already know is incomplete (paginated Bot Chat, or
+      // expectedMessageCount > page). Snapshot recovery still owns those.
+      if ((announced != null && transcript.length < announced) ||
+          (!_transcriptIsComplete && transcript.length <= _messages.length)) {
         return false;
       }
       final authority = _terminalAuthority(transcript, expectedUsers);
