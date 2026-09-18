@@ -6,7 +6,8 @@ Base: upstream `main` (after v1.2.10) plus [#34](https://github.com/xP3ta/hermes
 [#38](https://github.com/xP3ta/hermes-console/pull/38),
 [#40](https://github.com/xP3ta/hermes-console/pull/40).  
 Phone: flavor **`qa`** → `dev.xpetalab.hermesconsole.qa` (Obtainium
-`qa-open-chat`). Current APK is **`a8247a9`** on this branch. Rollback:
+`qa-open-chat`). This branch is CI-green [#40](https://github.com/xP3ta/hermes-console/pull/40)
+(`5436e1e` plus the coverage-complete adopt rule). Rollback:
 `joseph/athena-bot-chat-glass` (v1.2.10 writable Open Chat + REST-on-idle).
 Official Obtainium **1.2.9** stays installed. Do **not** take stock 1.2.10
 until #34 ships. Keep this QA APK until Console **1.2.11** includes #38
@@ -24,10 +25,11 @@ are the upstream-shaped pieces; the glass branch is not a PR candidate.
 - **#38** — while watching another surface, GET REST once more when that
   turn goes idle (durable assistant row). Tokens do not stream.
 - **#40** — when this phone owns the turn and the dashboard WebSocket
-  drops (`1006`), GET the durable transcript instead of waiting on
-  `session.resume` (official gateway has no `turn_idempotency_v1`). Skip
-  the 3s full Bot Chat GET while the composer has a draft unless another
-  surface owns the live turn.
+  drops (`1006`), GET the durable transcript. Adopt only if that GET is a
+  **complete** session (covers announced/expected count) *and* the current
+  turn has a final assistant. A short tail falls through to
+  `session.resume`. Skip the 3s full Bot Chat GET while the composer has
+  a draft unless another surface owns the live turn.
 
 On Athena, a phone send hitchhikes Desktop's live dashboard session when
 Desktop is up (same process, `session.resume` reuses the live id). If
@@ -51,8 +53,8 @@ Phone: Obtainium source `https://github.com/josephsellers/hermes-console`,
 installed (title filter `v1\.2\.9`).
 
 Persistent-key installs overlay (`8764000`, then `7a5e368`, then
-`a8247a9`). If the signer ever changes again: uninstall Hermes Console
-QA, then install once (pairing is lost).
+`a8247a9`, then this branch). If the signer ever changes again: uninstall
+Hermes Console QA, then install once (pairing is lost).
 
 Athena has no Flutter SDK. Laptop sideload is the fallback:
 
