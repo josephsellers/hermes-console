@@ -14276,6 +14276,14 @@ class ActiveChat {
         );
         if (!elapsed || !_canRecoverTurn(turnEpoch)) return;
       }
+      // Official Hermes has no turn_idempotency_v1, so recovery otherwise
+      // reconnects the dashboard WebSocket and session.resume. On a slow
+      // path that socket can stall in connecting after a 1006 while REST
+      // already has the assistant row. Adopt that transcript first; if the
+      // current turn is not durable yet, keep the existing resume loop.
+      if (await _tryAdoptDurableTranscriptForRecoveringTurn(turnEpoch)) {
+        return;
+      }
       try {
         final connected = await _desktopRecoveryOperationBeforeDeadline(
           gateway.connect().then((_) => true),
@@ -14621,6 +14629,31 @@ class ActiveChat {
       };
     }
     _emit(ActiveChatEvent.error);
+  }
+
+  /// One REST read of the stored transcript. If it already contains a final
+  /// assistant for the in-flight user turn, seal the run without waiting on
+  /// `session.resume`. Failures and incomplete turns return false so snapshot
+  /// recovery can continue. Does not acquire a runtime.
+  Future<bool> _tryAdoptDurableTranscriptForRecoveringTurn(int turnEpoch) async {
+    if (!_canRecoverTurn(turnEpoch)) return false;
+    final expectedUsers = _messages.where(isRealUserTurn).length;
+    if (expectedUsers <= 0) return false;
+    try {
+      final transcript = await _loadStoredMessages(_storedSessionProfile);
+      if (!_canRecoverTurn(turnEpoch)) return false;
+      final authority = _terminalAuthority(transcript, expectedUsers);
+      if (authority.reason != TerminalAuthorityReason.finalAssistant) {
+        return false;
+      }
+      await _completeRun(
+        finalOutput: authority.assistantText,
+        authoritativeTranscript: transcript,
+      );
+      return state == ChatPipelineState.completed;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _recoverRestTurnFromTranscript(
