@@ -14635,6 +14635,11 @@ class ActiveChat {
   /// assistant for the in-flight user turn, seal the run without waiting on
   /// `session.resume`. Failures and incomplete turns return false so snapshot
   /// recovery can continue. Does not acquire a runtime.
+  ///
+  /// A short REST list is not allowed to replace a conversation we already
+  /// know is longer (`hasEarlierMessages`). That is a paginated tail, not
+  /// proof the session is only those rows — snapshot recovery must still
+  /// degrade when `messageCount` says the page is partial.
   Future<bool> _tryAdoptDurableTranscriptForRecoveringTurn(int turnEpoch) async {
     if (!_canRecoverTurn(turnEpoch)) return false;
     final expectedUsers = _messages.where(isRealUserTurn).length;
@@ -14642,8 +14647,20 @@ class ActiveChat {
     try {
       final transcript = await _loadStoredMessages(_storedSessionProfile);
       if (!_canRecoverTurn(turnEpoch)) return false;
+      final announced = _desktopHydrationExpectedMessageCount;
+      if (hasEarlierMessages &&
+          (transcript.length <= _messages.length ||
+              (announced != null && transcript.length < announced))) {
+        return false;
+      }
       final authority = _terminalAuthority(transcript, expectedUsers);
       if (authority.reason != TerminalAuthorityReason.finalAssistant) {
+        return false;
+      }
+      if (!_terminalTranscriptCanReplaceVisibleProjection(
+        transcript,
+        expectedUsers,
+      )) {
         return false;
       }
       await _completeRun(
