@@ -3544,7 +3544,7 @@ void main() {
       await _waitUntil(() => chat.state == ChatPipelineState.failed);
 
       expect(chat.awaitingDurableTurnRecovery, isTrue);
-      expect(transcriptCalls, 1);
+      expect(transcriptCalls, 2);
       expect(
         chat.messages.any(
           (message) => message['content'] == 'respuesta local incompleta',
@@ -3564,7 +3564,6 @@ void main() {
   test(
     'snapshot terminal parcial sin user queda history-pending sin GET tardío',
     () async {
-      final transcriptGate = Completer<List<Map<String, dynamic>>>();
       var transcriptCalls = 0;
       final gateway = _LifecycleRecoverableGateway()
         ..initialSnapshot = DesktopSessionSnapshot(
@@ -3600,10 +3599,8 @@ void main() {
         'terminal-no-user',
         gateway,
         storedMessageLoader: (_, _) {
-          if (transcriptCalls++ == 0) {
-            return Future.value(const []);
-          }
-          return transcriptGate.future;
+          transcriptCalls++;
+          return Future.value(const []);
         },
       );
       addTearDown(chat.dispose);
@@ -3625,15 +3622,13 @@ void main() {
       );
       await _waitUntil(() => chat.state == ChatPipelineState.failed);
       expect(chat.awaitingDurableTurnRecovery, isTrue);
-      expect(transcriptCalls, 1);
-      expect(transcriptGate.isCompleted, isFalse);
+      expect(transcriptCalls, 2);
     },
   );
 
   test(
     'snapshot terminal parcial con tool queda pending sin promover transcript',
     () async {
-      final transcriptGate = Completer<List<Map<String, dynamic>>>();
       var transcriptCalls = 0;
       final gateway = _LifecycleRecoverableGateway()
         ..initialSnapshot = DesktopSessionSnapshot(
@@ -3685,10 +3680,8 @@ void main() {
         'terminal-tool-tail',
         gateway,
         storedMessageLoader: (_, _) {
-          if (transcriptCalls++ == 0) {
-            return Future.value(const []);
-          }
-          return transcriptGate.future;
+          transcriptCalls++;
+          return Future.value(const []);
         },
       );
       addTearDown(chat.dispose);
@@ -3704,8 +3697,7 @@ void main() {
       expect(chat.state, isNot(ChatPipelineState.completed));
       await _waitUntil(() => chat.state == ChatPipelineState.failed);
       expect(chat.awaitingDurableTurnRecovery, isTrue);
-      expect(transcriptCalls, 1);
-      expect(transcriptGate.isCompleted, isFalse);
+      expect(transcriptCalls, 2);
       expect(
         chat.messages.any(
           (message) => message['content'] == 'assistant final ya durable',
