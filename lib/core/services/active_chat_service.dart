@@ -7795,7 +7795,10 @@ class ActiveChat {
     _earlierMessagesNextOffset = visibleCount;
     _needsTranscriptTailHydration = false;
     _desktopHydrationExpectedMessageCount = null;
-    _hardExpectedStoredMessageCount = null;
+    if (_hardExpectedStoredMessageCount != null &&
+        visibleCount >= _hardExpectedStoredMessageCount!) {
+      _hardExpectedStoredMessageCount = null;
+    }
     _unconfirmedRetainedTranscriptIdentities.clear();
   }
 
@@ -7847,8 +7850,11 @@ class ActiveChat {
     final visibleCount = snapshot.messages.length;
     if (_desktopSnapshotTranscriptIsComplete(snapshot) &&
         !preserveVisibleFallback) {
-      _markTranscriptComplete(visibleCount: visibleCount);
-      return;
+      final hard = _hardExpectedStoredMessageCount;
+      if (hard == null || visibleCount >= hard) {
+        _markTranscriptComplete(visibleCount: visibleCount);
+        return;
+      }
     }
     _transcriptCoverageRevision += 1;
 
